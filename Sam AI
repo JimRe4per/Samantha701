@@ -1,0 +1,82 @@
+import os
+import csv
+import time
+import numpy as np
+import pandas as pd
+from scipy.stats import lorentzian
+from sklearn.preprocessing import LabelEncoder
+from sklearn.neural_network import MLPClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+class Samantha701:
+    def __init__(self):
+        self.dataset_file = "samantha701_data.csv"
+        self.dataset_path = os.path.join(os.getcwd(), self.dataset_file)
+        self.dataset_headers = ["color1", "color2", "color3", "result"]
+        self.dataset = None
+        self.le = LabelEncoder()
+        self.load_dataset()
+
+        self.colors_data_file = "colors.csv"
+        self.colors_data_path = os.path.join(os.getcwd(), self.colors_data_file)
+        self.colors_data = None
+        self.load_colors_data()
+
+        self.model = None
+
+        self.save_interval = 300 # seconds
+        self.last_save = time.time()
+
+        self.dependencies = ['numpy', 'pandas', 'scipy', 'scikit-learn']
+
+        self.check_dependencies()
+
+    def load_dataset(self):
+        if not os.path.exists(self.dataset_path):
+            with open(self.dataset_path, 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(self.dataset_headers)
+            os.chmod(self.dataset_path, 0o777)
+        else:
+            with open(self.dataset_path, 'r') as file:
+                reader = csv.reader(file)
+                self.dataset = list(reader)
+                self.dataset.pop(0)
+                self.dataset = np.array(self.dataset)
+                self.dataset[:, 3] = self.le.fit_transform(self.dataset[:, 3])
+                self.dataset = self.dataset.astype(float)
+
+    def save_dataset(self):
+        with open(self.dataset_path, 'a', newline='') as file:
+            writer = csv.writer(file)
+            for data in self.dataset:
+                writer.writerow(data)
+
+    def load_colors_data(self):
+        if not os.path.exists(self.colors_data_path):
+            self.install_dependencies()
+        self.colors_data = pd.read_csv(self.colors_data_path)
+
+    def install_dependencies(self):
+        print("Dependencies are missing. Installing now...")
+        os.system("pip install numpy pandas scipy scikit-learn")
+
+    def predict_color(self, color1, color2, color3):
+        x = np.array([color1, color2, color3])
+        y = []
+        for i in range(len(self.dataset_headers)-1):
+            y.append(lorentzian.pdf(x[i], loc=self.dataset[:, i].mean(), scale=self.dataset[:, i].std()))
+        y = np.prod(y)
+        y = self.le.inverse_transform([np.argmax(y)])[0]
+        return y
+
+    def train(self, color1, color2, color3, result):
+        if self.dataset is None:
+            self.dataset = np.array([[color1, color2, color3, result]])
+            self.dataset[:, 3] = self.le.fit_transform(self.dataset[:, 3])
+            self.save_dataset()
+        else:
+            self.dataset = np.vstack((self.dataset, np.array([color1, color2, color3, result])))
+            self.dataset[:, 3] = self.le.fit_transform(self.dataset[:, 3])
+            self.save_dataset
